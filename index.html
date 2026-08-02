@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Focus Flow</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #fffdf8;
+    --ink: #2b2b2b;
+    --muted: #8a8578;
+    --line: #e5e0d5;
+    --accent: #e0654a;
+    --accent-soft: #f6d9d1;
+    --green: #6aa06a;
+    --shadow: 0 8px 30px rgba(60,50,30,0.10);
+    --sky: linear-gradient(180deg, #dff0f7 0%, #f4f1ea 70%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b19;
+      --panel: #26241f;
+      --ink: #ece7db;
+      --muted: #9a9384;
+      --line: #38352d;
+      --accent: #e8735a;
+      --accent-soft: #46352e;
+      --green: #7db97d;
+      --shadow: 0 8px 30px rgba(0,0,0,0.35);
+      --sky: linear-gradient(180deg, #223038 0%, #1c1b19 70%);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 60px;
+  }
+  .app {
+    width: 100%;
+    max-width: 880px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 720px) { .app { grid-template-columns: 1fr; } }
+  header.title {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 2px;
+  }
+  header.title h1 { font-size: 26px; margin: 0; letter-spacing: -0.5px; }
+  header.title span { color: var(--muted); font-size: 14px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px;
+  }
+  /* Timer */
+  .mode-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .mode-btn {
+    flex: 1; padding: 8px 0; border: 1px solid var(--line); background: transparent;
+    border-radius: 10px; color: var(--muted); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .mode-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .clock {
+    font-size: 68px; font-weight: 700; text-align: center; letter-spacing: -2px;
+    font-variant-numeric: tabular-nums; margin: 8px 0 4px;
+  }
+  .clock-label { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; min-height: 18px; }
+  .timer-controls { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; padding: 13px 0; border: none; border-radius: 12px; font-size: 15px;
+    font-weight: 700; cursor: pointer; transition: transform .08s, filter .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); flex: 0 0 auto; padding: 13px 18px; }
+  .session-dots { display: flex; gap: 6px; justify-content: center; margin-top: 18px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .dot.done { background: var(--accent); }
+  /* Plant */
+  .plant-wrap { text-align: center; }
+  .plant-stage {
+    background: var(--sky); border-radius: 14px; padding: 6px; margin-bottom: 10px;
+    height: 210px; display: flex; align-items: flex-end; justify-content: center;
+  }
+  .plant-caption { color: var(--muted); font-size: 13px; }
+  .plant-caption b { color: var(--green); }
+  /* Tasks */
+  .tasks-card { grid-column: 1 / -1; }
+  .add-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .add-row input {
+    flex: 1; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); color: var(--ink); font-size: 14px;
+  }
+  .add-row input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .add-btn { padding: 0 18px; border: none; background: var(--accent); color: #fff; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 20px; }
+  ul.tasks { list-style: none; margin: 0; padding: 0; }
+  li.task {
+    display: flex; align-items: center; gap: 12px; padding: 11px 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  li.task:last-child { border-bottom: none; }
+  .check {
+    width: 20px; height: 20px; border: 2px solid var(--line); border-radius: 6px;
+    cursor: pointer; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 13px; transition: all .15s;
+  }
+  .check.done { background: var(--green); border-color: var(--green); }
+  .task-text { flex: 1; font-size: 15px; }
+  .task.done .task-text { text-decoration: line-through; color: var(--muted); }
+  .active-tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 20px; cursor: pointer;
+  }
+  .task-pomos { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+  .del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; flex: 0 0 auto; opacity: .5; }
+  .del:hover { opacity: 1; color: var(--accent); }
+  .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 18px 0; }
+  .stat-row { display: flex; justify-content: space-around; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stat { text-align: center; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .link-btn { background: none; border: none; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="title">
+    <h1>🌱 Focus Flow</h1>
+    <span>Focus in sprints. Watch your day grow.</span>
+  </header>
+
+  <!-- Timer -->
+  <section class="card">
+    <div class="mode-row">
+      <button class="mode-btn active" data-mode="focus">Focus · 25</button>
+      <button class="mode-btn" data-mode="short">Break · 5</button>
+      <button class="mode-btn" data-mode="long">Long · 15</button>
+    </div>
+    <div class="clock" id="clock">25:00</div>
+    <div class="clock-label" id="clockLabel">Ready when you are</div>
+    <div class="timer-controls">
+      <button class="btn btn-primary" id="startBtn">Start</button>
+      <button class="btn btn-ghost" id="resetBtn">Reset</button>
+    </div>
+    <div class="session-dots" id="dots"></div>
+  </section>
+
+  <!-- Plant -->
+  <section class="card plant-wrap">
+    <div class="plant-stage"><div id="plant"></div></div>
+    <div class="plant-caption">Your plant: <b id="stageName">a tiny seed</b><br><span id="plantHint"></span></div>
+  </section>
+
+  <!-- Tasks -->
+  <section class="card tasks-card">
+    <div class="add-row">
+      <input id="taskInput" placeholder="What are you focusing on?" maxlength="80">
+      <button class="add-btn" id="addBtn">+</button>
+    </div>
+    <ul class="tasks" id="taskList"></ul>
+    <div class="empty" id="emptyMsg">No tasks yet — add one above to get started.</div>
+    <div class="stat-row">
+      <div class="stat"><div class="n" id="statPomos">0</div><div class="l">Focus sessions</div></div>
+      <div class="stat"><div class="n" id="statDone">0</div><div class="l">Tasks done</div></div>
+      <div class="stat"><div class="n" id="statMin">0</div><div class="l">Minutes focused</div></div>
+    </div>
+    <div style="text-align:center;margin-top:10px"><button class="link-btn" id="resetDay">Reset today</button></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const DURATIONS = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
+  const LABELS = { focus: "Focus session", short: "Short break", long: "Long break" };
+  const KEY = "focusFlow.v1";
+
+  // ---- State (persisted per day) ----
+  const todayStr = new Date().toDateString();
+  let state = load();
+
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY));
+      if (raw && raw.day === todayStr) return raw;
+    } catch (e) {}
+    return { day: todayStr, tasks: [], pomos: 0, activeId: null };
+  }
+  function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+  // ---- Timer ----
+  let mode = "focus";
+  let remaining = DURATIONS[mode];
+  let running = false;
+  let ticker = null;
+
+  const clockEl = document.getElementById("clock");
+  const labelEl = document.getElementById("clockLabel");
+  const startBtn = document.getElementById("startBtn");
+
+  function fmt(s) {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
+  }
+  function renderClock() {
+    clockEl.textContent = fmt(remaining);
+    document.title = (running ? fmt(remaining) + " · " : "") + "Focus Flow";
+  }
+  function setMode(m) {
+    mode = m;
+    stop();
+    remaining = DURATIONS[m];
+    document.querySelectorAll(".mode-btn").forEach(b =>
+      b.classList.toggle("active", b.dataset.mode === m));
+    labelEl.textContent = m === "focus" ? "Ready when you are" : "Time for a breather";
+    renderClock();
+  }
+  function tick() {
+    remaining--;
+    renderClock();
+    if (remaining <= 0) complete();
+  }
+  function start() {
+    if (running) { stop(); return; }
+    running = true;
+    startBtn.textContent = "Pause";
+    labelEl.textContent = LABELS[mode] + " in progress…";
+    ticker = setInterval(tick, 1000);
+  }
+  function stop() {
+    running = false;
+    startBtn.textContent = "Start";
+    if (ticker) clearInterval(ticker);
+    ticker = null;
+    renderClock();
+  }
+  function complete() {
+    stop();
+    chime();
+    if (mode === "focus") {
+      state.pomos++;
+      const t = state.tasks.find(x => x.id === state.activeId);
+      if (t) t.pomos++;
+      save();
+      renderAll();
+      labelEl.textContent = "Nice work! 🌿 Take a break.";
+      setMode("short");
+    } else {
+      labelEl.textContent = "Break over — back to it?";
+      setMode("focus");
+    }
+  }
+  function chime() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99];
+      notes.forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = f; o.type = "sine";
+        o.connect(g); g.connect(ctx.destination);
+        const t = ctx.currentTime + i * 0.16;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.25, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+        o.start(t); o.stop(t + 0.5);
+      });
+    } catch (e) {}
+  }
+
+  document.querySelectorAll(".mode-btn").forEach(b =>
+    b.addEventListener("click", () => setMode(b.dataset.mode)));
+  startBtn.addEventListener("click", start);
+  document.getElementById("resetBtn").addEventListener("click", () => setMode(mode));
+
+  // ---- Tasks ----
+  const listEl = document.getElementById("taskList");
+  const inputEl = document.getElementById("taskInput");
+  const emptyMsg = document.getElementById("emptyMsg");
+
+  function addTask() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    const id = Date.now() + "" + Math.floor(remaining); // unique-ish, no Math.random reliance
+    state.tasks.push({ id, text, done: false, pomos: 0 });
+    if (!state.activeId) state.activeId = id;
+    inputEl.value = "";
+    save(); renderAll();
+  }
+  function renderTasks() {
+    listEl.innerHTML = "";
+    state.tasks.forEach(t => {
+      const li = document.createElement("li");
+      li.className = "task" + (t.done ? " done" : "");
+
+      const check = document.createElement("div");
+      check.className = "check" + (t.done ? " done" : "");
+      check.textContent = t.done ? "✓" : "";
+      check.onclick = () => { t.done = !t.done; save(); renderAll(); };
+
+      const text = document.createElement("div");
+      text.className = "task-text";
+      text.textContent = t.text;
+
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "flex:1;display:flex;align-items:center;gap:8px";
+      wrap.appendChild(text);
+      if (t.id === state.activeId && !t.done) {
+        const tag = document.createElement("span");
+        tag.className = "active-tag";
+        tag.textContent = "focusing";
+        wrap.appendChild(tag);
+      } else if (!t.done) {
+        const tag = document.createElement("span");
+        tag.className = "active-tag";
+        tag.style.cssText = "background:transparent;color:var(--muted)";
+        tag.textContent = "focus this";
+        tag.onclick = () => { state.activeId = t.id; save(); renderTasks(); };
+        wrap.appendChild(tag);
+      }
+
+      const pomos = document.createElement("div");
+      pomos.className = "task-pomos";
+      pomos.textContent = "🍅".repeat(t.pomos) || "";
+
+      const del = document.createElement("button");
+      del.className = "del"; del.textContent = "×";
+      del.onclick = () => {
+        state.tasks = state.tasks.filter(x => x.id !== t.id);
+        if (state.activeId === t.id) state.activeId = (state.tasks[0] || {}).id || null;
+        save(); renderAll();
+      };
+
+      li.append(check, wrap, pomos, del);
+      listEl.appendChild(li);
+    });
+    emptyMsg.style.display = state.tasks.length ? "none" : "block";
+  }
+
+  document.getElementById("addBtn").addEventListener("click", addTask);
+  inputEl.addEventListener("keydown", e => { if (e.key === "Enter") addTask(); });
+
+  // ---- Plant (grows with focus sessions) ----
+  const STAGES = [
+    { name: "a tiny seed",        hint: "Finish a focus session to sprout it." },
+    { name: "a hopeful sprout",   hint: "Keep going — it's reaching for the light." },
+    { name: "a leafy seedling",   hint: "Look at it grow!" },
+    { name: "a budding plant",    hint: "A bud is forming…" },
+    { name: "a blooming flower",  hint: "In full bloom. Beautiful focus today. 🌸" },
+    { name: "a flourishing bloom",hint: "Absolutely thriving. You're on fire! 🔥" }
+  ];
+  function plantSVG(stage) {
+    const soil = '<ellipse cx="70" cy="180" rx="55" ry="14" fill="#8a6d4a"/><ellipse cx="70" cy="176" rx="55" ry="12" fill="#a3825b"/>';
+    let s = '<svg width="140" height="200" viewBox="0 0 140 200" xmlns="http://www.w3.org/2000/svg">';
+    if (stage === 0) {
+      s += soil + '<ellipse cx="70" cy="168" rx="7" ry="9" fill="#6b4a2b"/>';
+    } else if (stage === 1) {
+      s += soil + '<path d="M70 175 Q70 150 70 140" stroke="#6aa06a" stroke-width="4" fill="none"/>'
+        + '<path d="M70 150 Q55 140 52 150 Q62 152 70 150" fill="#7db97d"/>';
+    } else if (stage === 2) {
+      s += soil + '<path d="M70 175 Q70 130 70 110" stroke="#6aa06a" stroke-width="5" fill="none"/>'
+        + '<path d="M70 140 Q48 128 44 142 Q60 146 70 140" fill="#7db97d"/>'
+        + '<path d="M70 125 Q92 113 96 127 Q80 131 70 125" fill="#6aa06a"/>';
+    } else if (stage === 3) {
+      s += soil + '<path d="M70 175 Q70 110 70 85" stroke="#6aa06a" stroke-width="5" fill="none"/>'
+        + '<path d="M70 140 Q45 126 41 142 Q59 147 70 140" fill="#7db97d"/>'
+        + '<path d="M70 120 Q95 106 99 122 Q81 127 70 120" fill="#6aa06a"/>'
+        + '<circle cx="70" cy="78" r="12" fill="#9ab86f"/>';
+    } else {
+      const petal = '#e0654a', petal2 = '#e88a6a';
+      s += soil + '<path d="M70 175 Q70 100 70 72" stroke="#6aa06a" stroke-width="5" fill="none"/>'
+        + '<path d="M70 145 Q42 130 38 148 Q58 153 70 145" fill="#7db97d"/>'
+        + '<path d="M70 122 Q98 107 102 125 Q82 130 70 122" fill="#6aa06a"/>';
+      const cx = 70, cy = 60, R = stage === 5 ? 20 : 16;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const px = cx + Math.cos(a) * R, py = cy + Math.sin(a) * R;
+        s += '<ellipse cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" rx="9" ry="15" fill="' + (i % 2 ? petal2 : petal) + '" transform="rotate(' + (a * 180 / Math.PI + 90).toFixed(1) + ' ' + px.toFixed(1) + ' ' + py.toFixed(1) + ')"/>';
+      }
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (R * 0.55).toFixed(1) + '" fill="#f2c14e"/>';
+      if (stage === 5) s += '<circle cx="24" cy="150" r="6" fill="#e0654a" opacity=".6"/><circle cx="116" cy="140" r="5" fill="#f2c14e" opacity=".7"/>';
+    }
+    return s + '</svg>';
+  }
+  function renderPlant() {
+    const stage = Math.min(state.pomos, STAGES.length - 1);
+    document.getElementById("plant").innerHTML = plantSVG(stage);
+    document.getElementById("stageName").textContent = STAGES[stage].name;
+    document.getElementById("plantHint").textContent = STAGES[stage].hint;
+  }
+
+  // ---- Dots + stats ----
+  function renderDots() {
+    const el = document.getElementById("dots");
+    el.innerHTML = "";
+    const total = Math.max(4, Math.ceil((state.pomos + 1) / 4) * 4);
+    for (let i = 0; i < total; i++) {
+      const d = document.createElement("div");
+      d.className = "dot" + (i < state.pomos ? " done" : "");
+      el.appendChild(d);
+    }
+  }
+  function renderStats() {
+    document.getElementById("statPomos").textContent = state.pomos;
+    document.getElementById("statDone").textContent = state.tasks.filter(t => t.done).length;
+    document.getElementById("statMin").textContent = state.pomos * 25;
+  }
+
+  function renderAll() { renderTasks(); renderPlant(); renderDots(); renderStats(); }
+
+  document.getElementById("resetDay").addEventListener("click", () => {
+    if (confirm("Reset today's tasks, sessions, and plant?")) {
+      state = { day: todayStr, tasks: [], pomos: 0, activeId: null };
+      save(); renderAll();
+    }
+  });
+
+  // ---- Init ----
+  setMode("focus");
+  renderAll();
+})();
+</script>
+</body>
+</html>
