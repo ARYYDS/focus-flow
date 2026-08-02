@@ -364,6 +364,10 @@
     { name: "a blooming flower",  hint: "In full bloom. Beautiful focus today. 🌸" },
     { name: "a flourishing bloom",hint: "Absolutely thriving. You're on fire! 🔥" }
   ];
+  // Focus sessions needed to first reach each stage above. Tuned so the flower
+  // (stage 4) shows by the 3rd session and full bloom (stage 5) by the 4th —
+  // otherwise, with the nightly reset, 4–5 sessions/day is out of reach for most.
+  const STAGE_AT = [0, 1, 2, 2, 3, 4];
   function plantSVG(stage) {
     const soil = '<ellipse cx="70" cy="180" rx="55" ry="14" fill="#8a6d4a"/><ellipse cx="70" cy="176" rx="55" ry="12" fill="#a3825b"/>';
     let s = '<svg width="140" height="200" viewBox="0 0 140 200" xmlns="http://www.w3.org/2000/svg">';
@@ -398,7 +402,10 @@
     return s + '</svg>';
   }
   function renderPlant() {
-    const stage = Math.min(state.pomos, STAGES.length - 1);
+    let stage = 0;
+    for (let i = 0; i < STAGE_AT.length; i++) {
+      if (state.pomos >= STAGE_AT[i]) stage = i;
+    }
     document.getElementById("plant").innerHTML = plantSVG(stage);
     document.getElementById("stageName").textContent = STAGES[stage].name;
     document.getElementById("plantHint").textContent = STAGES[stage].hint;
