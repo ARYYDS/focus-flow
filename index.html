@@ -209,6 +209,7 @@
   let remaining = DURATIONS[mode];
   let running = false;
   let ticker = null;
+  let endAt = null;   // wall-clock ms when the current run finishes
 
   const clockEl = document.getElementById("clock");
   const labelEl = document.getElementById("clockLabel");
@@ -231,20 +232,30 @@
     labelEl.textContent = m === "focus" ? "Ready when you are" : "Time for a breather";
     renderClock();
   }
+  // Derive the countdown from wall-clock time, never from a tick count:
+  // browsers throttle timers in hidden/background tabs (~once a minute), so a
+  // decrementing counter loses that time and the session never completes.
+  function left() {
+    return Math.max(0, Math.round((endAt - Date.now()) / 1000));
+  }
   function tick() {
-    remaining--;
+    if (!running) return;
+    remaining = left();
     renderClock();
     if (remaining <= 0) complete();
   }
   function start() {
     if (running) { stop(); return; }
     running = true;
+    endAt = Date.now() + remaining * 1000;
     startBtn.textContent = "Pause";
     labelEl.textContent = LABELS[mode] + " in progress…";
     ticker = setInterval(tick, 1000);
   }
   function stop() {
+    if (running && endAt !== null) remaining = left();  // freeze the true value on pause
     running = false;
+    endAt = null;
     startBtn.textContent = "Start";
     if (ticker) clearInterval(ticker);
     ticker = null;
@@ -287,6 +298,9 @@
     b.addEventListener("click", () => setMode(b.dataset.mode)));
   startBtn.addEventListener("click", start);
   document.getElementById("resetBtn").addEventListener("click", () => setMode(mode));
+  // Catch up the moment the tab is looked at again, rather than on the next
+  // (possibly minute-late) throttled tick.
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 
   // ---- Tasks ----
   const listEl = document.getElementById("taskList");
